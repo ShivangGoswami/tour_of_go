@@ -1,2 +1,1 @@
-defer vs function variables
 execise 1 doubts
