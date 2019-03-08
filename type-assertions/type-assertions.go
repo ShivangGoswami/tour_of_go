@@ -11,7 +11,6 @@ func main(){
 	s,ok:=i.(string)
 	fmt.Println(s,ok)
 
-	i=64.0
-	f:=i.(float64)
-	fmt.Println(f)
+	//f=i.(float64)
+	//fmt.Println(f)
 }
