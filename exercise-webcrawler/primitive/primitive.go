@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"sync"
 )
 
 type Fetcher interface {
@@ -13,28 +12,11 @@ type Fetcher interface {
 
 // Crawl uses fetcher to recursively crawl
 // pages starting with url, to a maximum of depth.
-// func Crawl(url string, depth int, fetcher Fetcher) {
-// 	// TODO: Fetch URLs in parallel.
-// 	// TODO: Don't fetch the same URL twice.
-// 	// This implementation doesn't do either:
-// 	if depth <= 0 {
-// 		return
-// 	}
-// 	body, urls, err := fetcher.Fetch(url)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return
-// 	}
-// 	fmt.Printf("found: %s %q\n", url, body)
-// 	for _, u := range urls {
-// 		Crawl(u, depth-1, fetcher)
-// 	}
-// 	return
-// }
-
-func Crawl(url string, depth int, fetcher Fetcher, ret chan string) {
-	defer close(ret)
-	if depth <= 0 || retr.visit[url] {
+func Crawl(url string, depth int, fetcher Fetcher) {
+	// TODO: Fetch URLs in parallel.
+	// TODO: Don't fetch the same URL twice.
+	// This implementation doesn't do either:
+	if depth <= 0 {
 		return
 	}
 	body, urls, err := fetcher.Fetch(url)
@@ -42,38 +24,19 @@ func Crawl(url string, depth int, fetcher Fetcher, ret chan string) {
 		fmt.Println(err)
 		return
 	}
-	ret <- fmt.Sprintf("found: %s %q\n", url, body)
-	result := make([]chan string, len(urls))
-	for i, u := range urls {
-		result[i] = make(chan string)
-		go Crawl(u, depth-1, fetcher, result[i])
-	}
-	for i := range result {
-		for s := range result[i] {
-			ret <- s
-		}
+	fmt.Printf("found: %s %q\n", url, body)
+	for _, u := range urls {
+		Crawl(u, depth-1, fetcher)
 	}
 	return
 }
 
 func main() {
-	retr.visit = make(map[string]bool)
-	c := make(chan string)
-	go Crawl("https://golang.org/", 4, fetcher, c)
-	for s := range c {
-		fmt.Println(s)
-	}
+	Crawl("https://golang.org/", 4, fetcher)
 }
 
 // fakeFetcher is Fetcher that returns canned results.
 type fakeFetcher map[string]*fakeResult
-
-type retriver struct {
-	visit map[string]bool
-	mux   sync.Mutex
-}
-
-var retr retriver
 
 type fakeResult struct {
 	body string
@@ -81,9 +44,6 @@ type fakeResult struct {
 }
 
 func (f fakeFetcher) Fetch(url string) (string, []string, error) {
-	retr.mux.Lock()
-	retr.visit[url] = true
-	defer retr.mux.Unlock()
 	if res, ok := f[url]; ok {
 		return res.body, res.urls, nil
 	}

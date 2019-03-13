@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"sync"
+	"time"
 )
 
 type Fetcher interface {
@@ -32,9 +33,8 @@ type Fetcher interface {
 // 	return
 // }
 
-func Crawl(url string, depth int, fetcher Fetcher, ret chan string) {
-	defer close(ret)
-	if depth <= 0 || retr.visit[url] {
+func Crawl(url string, depth int, fetcher Fetcher) {
+	if depth <= 0 || ret.visit[url] {
 		return
 	}
 	body, urls, err := fetcher.Fetch(url)
@@ -42,27 +42,17 @@ func Crawl(url string, depth int, fetcher Fetcher, ret chan string) {
 		fmt.Println(err)
 		return
 	}
-	ret <- fmt.Sprintf("found: %s %q\n", url, body)
-	result := make([]chan string, len(urls))
-	for i, u := range urls {
-		result[i] = make(chan string)
-		go Crawl(u, depth-1, fetcher, result[i])
-	}
-	for i := range result {
-		for s := range result[i] {
-			ret <- s
-		}
+	fmt.Printf("found: %s %q\n", url, body)
+	for _, u := range urls {
+		go Crawl(u, depth-1, fetcher)
 	}
 	return
 }
 
 func main() {
-	retr.visit = make(map[string]bool)
-	c := make(chan string)
-	go Crawl("https://golang.org/", 4, fetcher, c)
-	for s := range c {
-		fmt.Println(s)
-	}
+	ret.visit = make(map[string]bool)
+	Crawl("https://golang.org/", 4, fetcher)
+	time.Sleep(2 * time.Second)
 }
 
 // fakeFetcher is Fetcher that returns canned results.
@@ -73,7 +63,7 @@ type retriver struct {
 	mux   sync.Mutex
 }
 
-var retr retriver
+var ret retriver
 
 type fakeResult struct {
 	body string
@@ -81,10 +71,10 @@ type fakeResult struct {
 }
 
 func (f fakeFetcher) Fetch(url string) (string, []string, error) {
-	retr.mux.Lock()
-	retr.visit[url] = true
-	defer retr.mux.Unlock()
 	if res, ok := f[url]; ok {
+		ret.mux.Lock()
+		ret.visit[url] = true
+		defer ret.mux.Unlock()
 		return res.body, res.urls, nil
 	}
 	return "", nil, fmt.Errorf("not found: %s", url)
